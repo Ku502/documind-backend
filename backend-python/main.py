@@ -97,7 +97,7 @@ If the answer is not in the document, say 'I couldn't find this in the uploaded 
                     "content": f"Document Content:\n{context}\n\nQuestion: {req.question}"
                 }
             ],
-            model="llama3-8b-8192",
+            model="llama-3.3-70b-versatile",
             temperature=0.3,
             max_tokens=1024,
         )
