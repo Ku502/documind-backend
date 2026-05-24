@@ -98,7 +98,7 @@ Question: {req.question}
 Answer:"""
 
     try:
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash-8b")
         response = model.generate_content(prompt)
         answer = response.text
 
