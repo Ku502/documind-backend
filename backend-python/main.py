@@ -2,8 +2,8 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os, shutil, tempfile
-import google.generativeai as genai
 import pypdf
+from groq import Groq
 
 app = FastAPI(title="DocuMind AI API")
 
@@ -14,10 +14,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+client = Groq(api_key=GROQ_API_KEY)
 
-# In-memory document store
 document_store = {}
 
 class QuestionRequest(BaseModel):
@@ -82,25 +81,28 @@ async def ask_question(req: QuestionRequest):
         raise HTTPException(status_code=404, detail="Session not found. Please upload a PDF first.")
 
     doc = document_store[req.session_id]
-    
-    # Use first 6000 chars as context (fits in Gemini context window)
     context = doc["text"][:6000]
 
-    prompt = f"""You are DocuMind, an intelligent document assistant.
-Use the following document content to answer the user's question accurately and concisely.
-If the answer is not in the document, say "I couldn't find this in the uploaded document."
-
-Document Content:
-{context}
-
-Question: {req.question}
-
-Answer:"""
-
     try:
-        model = genai.GenerativeModel("gemini-pro")
-        response = model.generate_content(prompt)
-        answer = response.text
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You are DocuMind, an intelligent document assistant.
+Use the provided document content to answer questions accurately and concisely.
+If the answer is not in the document, say 'I couldn't find this in the uploaded document.'"""
+                },
+                {
+                    "role": "user",
+                    "content": f"Document Content:\n{context}\n\nQuestion: {req.question}"
+                }
+            ],
+            model="llama3-8b-8192",
+            temperature=0.3,
+            max_tokens=1024,
+        )
+
+        answer = chat_completion.choices[0].message.content
 
         return {
             "question": req.question,
